@@ -1,0 +1,92 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  IN_PROGRESS
+  CLOSED
+  ARCHIVED
+}
+
+enum ProjectStatus {
+  PUBLISHED
+  DRAFT
+  ARCHIVED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(ADMIN)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Project {
+  id          String        @id @default(uuid())
+  title       String
+  slug        String        @unique
+  category    String
+  location    String
+  year        String
+  image       String
+  description String
+  highlights  String[]      @default([])
+  gallery     String[]      @default([])
+  scope       String?
+  area        String?
+  status      ProjectStatus @default(PUBLISHED)
+  featured    Boolean       @default(false)
+  order       Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  leads       Lead[]
+
+  @@map("projects")
+}
+
+model Lead {
+  id           String     @id @default(uuid())
+  name         String
+  email        String
+  phone        String?
+  message      String?
+  projectTitle String?
+  projectId    String?
+  status       LeadStatus @default(NEW)
+  notes        String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  project      Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@map("leads")
+}
+
+model Testimonial {
+  id          String   @id @default(uuid())
+  quote       String
+  author      String
+  designation String
+  order       Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("testimonials")
+}
