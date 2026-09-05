@@ -1,12 +1,23 @@
 import { Router } from 'express';
-import { getTestimonials, createTestimonial, updateTestimonial, deleteTestimonial } from '../controllers/testimonials.controller';
-import { requireAuth, requireRole } from '../middlewares/auth.middleware';
+import {
+  getTestimonials,
+  createTestimonial,
+  updateTestimonial,
+  deleteTestimonial,
+  testimonialSchema,
+  updateTestimonialSchema,
+} from '../controllers/testimonials.controller';
+import { validate } from '../middlewares/validate.middleware';
 
 const router = Router();
 
+// Public active reviews
 router.get('/', getTestimonials);
-router.post('/', requireAuth, requireRole(['ADMIN']), createTestimonial);
-router.put('/:id', requireAuth, requireRole(['ADMIN']), updateTestimonial);
-router.delete('/:id', requireAuth, requireRole(['ADMIN']), deleteTestimonial);
+
+// Admin review management
+router.post('/', validate(testimonialSchema), createTestimonial);
+router.put('/:id', validate(updateTestimonialSchema), updateTestimonial);
+router.patch('/:id', validate(updateTestimonialSchema), updateTestimonial);
+router.delete('/:id', deleteTestimonial);
 
 export default router;

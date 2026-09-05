@@ -1,6 +1,6 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 import {
-  listProjects,
+  getProjects,
   getProjectById,
   createProject,
   updateProject,
@@ -12,11 +12,14 @@ import { validate } from '../middlewares/validate.middleware';
 
 const router = Router();
 
-// CRUD Endpoints for Project
-router.get('/', listProjects);
+// Public catalogue listing & item detail
+router.get('/', getProjects);
 router.get('/:id', getProjectById);
+
+// Admin Mutation Endpoints
 router.post('/', validate(createProjectSchema), createProject);
 router.put('/:id', validate(updateProjectSchema), updateProject);
+router.patch('/:id', validate(updateProjectSchema), updateProject);
 router.delete('/:id', deleteProject);
 
 export default router;

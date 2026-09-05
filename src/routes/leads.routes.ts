@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { submitLead, getLeads, updateLeadStatus, deleteLead, leadSchema } from '../controllers/leads.controller';
 import { validate } from '../middlewares/validate.middleware';
+import { leadRateLimiter } from '../middlewares/rateLimiter';
 
 const router = Router();
 
-router.post('/', validate(leadSchema), submitLead);
+// Public Lead Ingestion (Contact form, PDF download, Project inquiry)
+router.post('/', leadRateLimiter, validate(leadSchema), submitLead);
 
 // Admin Routes for Leads
 router.get('/', getLeads);

@@ -1,22 +1,48 @@
 import { Router } from 'express';
+import { prisma } from '../config/prisma';
 import authRoutes from './auth.routes';
 import projectsRoutes from './projects.routes';
 import leadsRoutes from './leads.routes';
 import testimonialsRoutes from './testimonials.routes';
+import { apiRateLimiter } from '../middlewares/rateLimiter';
 
 const router = Router();
 
-router.get('/health', (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      status: 'online',
-      timestamp: new Date().toISOString(),
-      service: 'Attiks Architecture Backend API (PostgreSQL + Prisma)',
-      activeResources: ['projects', 'leads', 'testimonials', 'users'],
+// Healthcheck & Liveness Probe
+router.get('/health', async (req, res) => {
+  let dbStatus = 'healthy';
+  let latencyMs = 0;
+
+  try {
+    const start = Date.now();
+    await prisma.$queryRaw`SELECT 1`;
+    latencyMs = Date.now() - start;
+  } catch (error: any) {
+    dbStatus = 'unreachable';
+  }
+
+  const isHealthy = dbStatus === 'healthy';
+  const memUsage = process.memoryUsage();
+
+  return res.status(isHealthy ? 200 : 503).json({
+    success: isHealthy,
+    status: isHealthy ? 'online' : 'degraded',
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime()),
+    database: {
+      status: dbStatus,
+      latencyMs: `${latencyMs}ms`,
     },
+    memory: {
+      rss: `${Math.round(memUsage.rss / 1024 / 1024)} MB`,
+      heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)} MB`,
+    },
+    activeResources: ['projects', 'leads', 'testimonials', 'users', 'auth'],
   });
 });
+
+// Apply general API rate limiter
+router.use(apiRateLimiter);
 
 // Auth Routes
 router.use('/auth', authRoutes);
@@ -25,10 +51,11 @@ router.use('/auth', authRoutes);
 router.use('/admin/projects', projectsRoutes);
 router.use('/projects', projectsRoutes);
 
-// Leads & Testimonials
+// Leads Endpoints (Public Capture & Admin Triage)
 router.use('/admin/leads', leadsRoutes);
 router.use('/leads', leadsRoutes);
 
+// Testimonials Endpoints
 router.use('/admin/testimonials', testimonialsRoutes);
 router.use('/testimonials', testimonialsRoutes);
 

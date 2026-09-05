@@ -1,34 +1,31 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { prisma } from '../config/prisma';
-import { sendSuccess, sendError } from '../utils/response';
 import { appCache } from '../utils/cache';
+import { sendSuccess, sendError } from '../utils/response';
 
-// ==========================================
-// VALIDATION SCHEMAS
-// ==========================================
 export const createProjectSchema = z.object({
   body: z.object({
-    title: z.string().min(1, 'Title is required'),
+    title: z.string().min(2, 'Title must be at least 2 characters'),
     slug: z.string().optional(),
-    category: z.string().min(1, 'Category is required'),
+    category: z.string().min(2, 'Category is required'),
     location: z.string().optional().default(''),
     year: z.string().optional().default(''),
     image: z.string().min(1, 'Cover image is required'),
     description: z.string().optional().default(''),
     highlights: z.array(z.string()).optional().default([]),
     gallery: z.array(z.string()).optional().default([]),
-    scope: z.string().nullable().optional(),
-    area: z.string().nullable().optional(),
+    scope: z.string().optional().nullable(),
+    area: z.string().optional().nullable(),
     status: z.enum(['PUBLISHED', 'DRAFT', 'ARCHIVED']).optional().default('PUBLISHED'),
     featured: z.boolean().optional().default(false),
-    order: z.number().int().optional().default(0),
+    order: z.number().optional().default(0),
   }),
 });
 
 export const updateProjectSchema = z.object({
   body: z.object({
-    title: z.string().min(1).optional(),
+    title: z.string().min(2).optional(),
     slug: z.string().optional(),
     category: z.string().optional(),
     location: z.string().optional(),
@@ -37,48 +34,52 @@ export const updateProjectSchema = z.object({
     description: z.string().optional(),
     highlights: z.array(z.string()).optional(),
     gallery: z.array(z.string()).optional(),
-    scope: z.string().nullable().optional(),
-    area: z.string().nullable().optional(),
+    scope: z.string().optional().nullable(),
+    area: z.string().optional().nullable(),
     status: z.enum(['PUBLISHED', 'DRAFT', 'ARCHIVED']).optional(),
     featured: z.boolean().optional(),
-    order: z.number().int().optional(),
+    order: z.number().optional(),
   }),
 });
 
 function slugify(text: string): string {
   return text
+    .toString()
     .toLowerCase()
     .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/[\s_-]+/g, '-')
+    .replace(/[^ws-]/g, '')
+    .replace(/[s_-]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
 
-// ==========================================
-// CRUD CONTROLLER HANDLERS
-// ==========================================
-
 /**
- * GET /api/admin/projects
- * List projects with pagination, lead count, and caching
+ * GET /api/projects
+ * Cached project list with projection lazy loading & pagination
  */
-export async function listProjects(req: Request, res: Response, next: NextFunction) {
+export async function getProjects(req: Request, res: Response, next: NextFunction) {
   try {
-    const page = Math.max(1, parseInt(String(req.query.page || '1'), 10));
-    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '10'), 10)));
-    const category = req.query.category ? String(req.query.category) : undefined;
-    const status = req.query.status ? (String(req.query.status).toUpperCase() as any) : undefined;
-    const search = req.query.search ? String(req.query.search).trim() : undefined;
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const category = req.query.category as string;
+    const status = req.query.status as string;
+    const search = req.query.search as string;
+    const includeGallery = req.query.includeGallery === 'true';
 
-    const cacheKey = `projects:list:${JSON.stringify({ page, limit, category, status, search })}`;
+    const cacheKey = `projects:list:${JSON.stringify({ page, limit, category, status, search, includeGallery })}`;
     const cachedData = appCache.get(cacheKey);
     if (cachedData) {
-      return sendSuccess(res, cachedData);
+      return sendSuccess(res, cachedData, 'Projects fetched from cache');
     }
 
     const where: any = {};
     if (category && category !== 'all') where.category = category;
-    if (status) where.status = status;
+    if (status) {
+      where.status = status.toUpperCase();
+    } else {
+      // By default public API serves PUBLISHED projects
+      where.status = 'PUBLISHED';
+    }
+
     if (search) {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
@@ -95,7 +96,24 @@ export async function listProjects(req: Request, res: Response, next: NextFuncti
         where,
         skip,
         take: limit,
-        include: {
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          category: true,
+          location: true,
+          year: true,
+          image: true,
+          description: true,
+          highlights: true,
+          gallery: includeGallery,
+          scope: true,
+          area: true,
+          status: true,
+          featured: true,
+          order: true,
+          createdAt: true,
+          updatedAt: true,
           _count: {
             select: { leads: true },
           },
@@ -114,16 +132,16 @@ export async function listProjects(req: Request, res: Response, next: NextFuncti
       },
     };
 
-    appCache.set(cacheKey, result, 60);
-    return sendSuccess(res, result);
+    appCache.set(cacheKey, result, 60); // 60s TTL
+    return sendSuccess(res, result, 'Projects fetched successfully');
   } catch (error) {
     next(error);
   }
 }
 
 /**
- * GET /api/admin/projects/:id
- * Read one project by ID (or slug), including linked leads
+ * GET /api/projects/:id
+ * Read one project by ID or unique slug
  */
 export async function getProjectById(req: Request, res: Response, next: NextFunction) {
   try {
@@ -132,7 +150,7 @@ export async function getProjectById(req: Request, res: Response, next: NextFunc
 
     const cachedProject = appCache.get(cacheKey);
     if (cachedProject) {
-      return sendSuccess(res, cachedProject);
+      return sendSuccess(res, cachedProject, 'Project fetched from cache');
     }
 
     const project = await prisma.project.findFirst({
@@ -142,6 +160,15 @@ export async function getProjectById(req: Request, res: Response, next: NextFunc
       include: {
         leads: {
           orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            message: true,
+            status: true,
+            createdAt: true,
+          },
         },
       },
     });
@@ -151,7 +178,7 @@ export async function getProjectById(req: Request, res: Response, next: NextFunc
     }
 
     appCache.set(cacheKey, project, 60);
-    return sendSuccess(res, project);
+    return sendSuccess(res, project, 'Project details fetched successfully');
   } catch (error) {
     next(error);
   }
@@ -193,7 +220,7 @@ export async function createProject(req: Request, res: Response, next: NextFunct
     });
 
     appCache.invalidatePrefix('projects:');
-    return sendSuccess(res, project, 201);
+    return sendSuccess(res, project, 'Project created successfully', 201);
   } catch (error) {
     next(error);
   }
@@ -228,7 +255,7 @@ export async function updateProject(req: Request, res: Response, next: NextFunct
     });
 
     appCache.invalidatePrefix('projects:');
-    return sendSuccess(res, project);
+    return sendSuccess(res, project, 'Project updated successfully');
   } catch (error) {
     next(error);
   }
@@ -250,7 +277,7 @@ export async function deleteProject(req: Request, res: Response, next: NextFunct
     await prisma.project.delete({ where: { id } });
 
     appCache.invalidatePrefix('projects:');
-    return sendSuccess(res, { id, deleted: true });
+    return sendSuccess(res, { id, deleted: true }, 'Project deleted successfully');
   } catch (error) {
     next(error);
   }
