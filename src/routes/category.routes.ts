@@ -6,7 +6,7 @@ import {
   updateCategory,
   deleteCategory,
 } from '../controllers/category.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { requireAuth } from '../middlewares/auth.middleware';
 
 const router = Router();
 
@@ -15,8 +15,9 @@ router.get('/', getCategories);
 router.get('/:id', getCategoryById);
 
 // Admin-protected: create, update, delete
-router.post('/', authenticate, createCategory);
-router.put('/:id', authenticate, updateCategory);
-router.delete('/:id', authenticate, deleteCategory);
+router.post('/', requireAuth, createCategory);
+router.put('/:id', requireAuth, updateCategory);
+router.patch('/:id', requireAuth, updateCategory);
+router.delete('/:id', requireAuth, deleteCategory);
 
 export default router;
