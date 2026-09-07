@@ -47,6 +47,8 @@ model Project {
   location    String
   year        String
   image       String
+  imageAlt    String?       @default("")
+  galleryAlts String[]      @default([])
   description String
   highlights  String[]      @default([])
   gallery     String[]      @default([])
@@ -97,4 +99,52 @@ model Testimonial {
 
   @@index([active, order])
   @@map("testimonials")
+}
+
+model HeroSlide {
+  id          String   @id @default(uuid())
+  mediaType   String   @default("video") // "video" or "image" (supports webp, gif, jpg, png, mp4, webm)
+  mediaUrl    String
+  posterUrl   String?
+  altText     String?       @default("")
+  title       String?
+  subtitle    String?
+  ctaText     String?  @default("view projects")
+  ctaLink     String?  @default("/projects")
+  order       Int      @default(1)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([active, order])
+  @@map("hero_slides")
+}
+
+model HeroSettings {
+  id               Int      @id @default(1)
+  autoPlayInterval Int      @default(6500)
+  showPagination   Boolean  @default(true)
+  showCta          Boolean  @default(true)
+  defaultCtaText   String   @default("view projects")
+  defaultCtaLink   String   @default("/projects")
+  updatedAt        DateTime @updatedAt
+
+  @@map("hero_settings")
+}
+
+model GalleryPost {
+  id          String   @id @default(uuid())
+  image       String
+  caption     String   @default("Architectural Highlight")
+  altText     String?  @default("")
+  description String?  @default("")
+  location    String?  @default("")
+  aspectRatio String?  @default("auto")
+  order       Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([active, order])
+  @@map("gallery_posts")
 }

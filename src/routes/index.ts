@@ -4,6 +4,8 @@ import authRoutes from './auth.routes';
 import projectsRoutes from './projects.routes';
 import leadsRoutes from './leads.routes';
 import testimonialsRoutes from './testimonials.routes';
+import heroRoutes from './hero.routes';
+import galleryRoutes from './gallery.routes';
 import { apiRateLimiter } from '../middlewares/rateLimiter';
 
 const router = Router();
@@ -37,7 +39,7 @@ router.get('/health', async (req, res) => {
       rss: `${Math.round(memUsage.rss / 1024 / 1024)} MB`,
       heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)} MB`,
     },
-    activeResources: ['projects', 'leads', 'testimonials', 'users', 'auth'],
+    activeResources: ['projects', 'leads', 'testimonials', 'hero', 'gallery', 'users', 'auth'],
   });
 });
 
@@ -46,6 +48,14 @@ router.use(apiRateLimiter);
 
 // Auth Routes
 router.use('/auth', authRoutes);
+
+// Hero Section Endpoints
+router.use('/admin/hero', heroRoutes);
+router.use('/hero', heroRoutes);
+
+// Gallery Showcase Endpoints
+router.use('/admin/gallery', galleryRoutes);
+router.use('/gallery', galleryRoutes);
 
 // Projects Endpoints (Public & Admin)
 router.use('/admin/projects', projectsRoutes);

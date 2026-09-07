@@ -12,6 +12,8 @@ export const createProjectSchema = z.object({
     location: z.string().optional().default(''),
     year: z.string().optional().default(''),
     image: z.string().min(1, 'Cover image is required'),
+    imageAlt: z.string().optional().default(''),
+    galleryAlts: z.array(z.string()).optional().default([]),
     description: z.string().optional().default(''),
     highlights: z.array(z.string()).optional().default([]),
     gallery: z.array(z.string()).optional().default([]),
@@ -31,6 +33,8 @@ export const updateProjectSchema = z.object({
     location: z.string().optional(),
     year: z.string().optional(),
     image: z.string().optional(),
+    imageAlt: z.string().optional(),
+    galleryAlts: z.array(z.string()).optional(),
     description: z.string().optional(),
     highlights: z.array(z.string()).optional(),
     gallery: z.array(z.string()).optional(),
@@ -47,8 +51,8 @@ function slugify(text: string): string {
     .toString()
     .toLowerCase()
     .trim()
-    .replace(/[^ws-]/g, '')
-    .replace(/[s_-]+/g, '-')
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_-]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
 
@@ -76,7 +80,6 @@ export async function getProjects(req: Request, res: Response, next: NextFunctio
     if (status) {
       where.status = status.toUpperCase();
     } else {
-      // By default public API serves PUBLISHED projects
       where.status = 'PUBLISHED';
     }
 
@@ -104,6 +107,8 @@ export async function getProjects(req: Request, res: Response, next: NextFunctio
           location: true,
           year: true,
           image: true,
+          imageAlt: true,
+          galleryAlts: true,
           description: true,
           highlights: true,
           gallery: includeGallery,
@@ -132,7 +137,7 @@ export async function getProjects(req: Request, res: Response, next: NextFunctio
       },
     };
 
-    appCache.set(cacheKey, result, 60); // 60s TTL
+    appCache.set(cacheKey, result, 60);
     return sendSuccess(res, result, 'Projects fetched successfully');
   } catch (error) {
     next(error);
@@ -208,6 +213,8 @@ export async function createProject(req: Request, res: Response, next: NextFunct
         location: body.location || '',
         year: body.year || '',
         image: body.image,
+        imageAlt: body.imageAlt || body.title,
+        galleryAlts: Array.isArray(body.galleryAlts) ? body.galleryAlts : [],
         description: body.description || '',
         highlights: Array.isArray(body.highlights) ? body.highlights : [],
         gallery: Array.isArray(body.gallery) ? body.gallery : [],
