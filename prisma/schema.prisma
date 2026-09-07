@@ -148,3 +148,19 @@ model GalleryPost {
   @@index([active, order])
   @@map("gallery_posts")
 }
+
+model Category {
+  id           String   @id @default(uuid())
+  label        String
+  value        String   @unique
+  portfolioPdf String?  @default("")
+  description  String?  @default("")
+  order        Int      @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([active, order])
+  @@index([value])
+  @@map("categories")
+}
