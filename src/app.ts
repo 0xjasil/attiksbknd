@@ -2,6 +2,8 @@ import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import path from 'path';
+import fs from 'fs';
 import { ENV } from './config/env';
 import routes from './routes';
 import { errorHandler } from './middlewares/error.middleware';
@@ -10,7 +12,9 @@ export function createApp(): Express {
   const app = express();
 
   // Security & Logging Middlewares
-  app.use(helmet());
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }));
   app.use(cors({
     origin: ENV.CORS_ORIGIN === '*' ? true : ENV.CORS_ORIGIN.split(','),
     credentials: true,
@@ -20,6 +24,15 @@ export function createApp(): Express {
 
   if (ENV.NODE_ENV !== 'test') {
     app.use(morgan('dev'));
+  }
+
+  // Static uploads serving (from frontend public directory or backend uploads)
+  const frontendUploads = path.resolve('F:/attiks/public/uploads');
+  const localUploads = path.resolve(process.cwd(), 'uploads');
+  if (fs.existsSync(frontendUploads)) {
+    app.use('/uploads', express.static(frontendUploads));
+  } else if (fs.existsSync(localUploads)) {
+    app.use('/uploads', express.static(localUploads));
   }
 
   // API Routes
