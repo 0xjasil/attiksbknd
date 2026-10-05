@@ -26,14 +26,21 @@ export function createApp(): Express {
     app.use(morgan('dev'));
   }
 
-  // Static uploads serving (from frontend public directory or backend uploads)
-  const frontendUploads = path.resolve('F:/attiks/public/uploads');
+  // Static uploads serving
   const localUploads = path.resolve(process.cwd(), 'uploads');
-  if (fs.existsSync(frontendUploads)) {
-    app.use('/uploads', express.static(frontendUploads));
-  } else if (fs.existsSync(localUploads)) {
+  if (fs.existsSync(localUploads)) {
     app.use('/uploads', express.static(localUploads));
   }
+
+  // Root endpoint for status check
+  app.get('/', (req, res) => {
+    res.status(200).json({
+      success: true,
+      message: 'Attiks Architecture API is operational',
+      health: '/api/health',
+      version: '1.0.0',
+    });
+  });
 
   // API Routes
   app.use('/api', routes);
